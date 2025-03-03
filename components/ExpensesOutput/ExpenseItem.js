@@ -1,11 +1,17 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GlobalStyles } from '../../constants/styles';
 import { getFormattedDate } from '../../util/date';
+import { useNavigation } from '@react-navigation/native';
 
 const { colors } = GlobalStyles;
 
-function ExpenseItem({ description, amount, date }) {
-  function expensePressHandler() {}
+function ExpenseItem({ id, description, amount, date }) {
+  const navigation = useNavigation();
+
+  function expensePressHandler() {
+    //컴포넌트 내부는 프롭으로 내비게이션을 못 받기 때문에 훅을 사용함
+    navigation.navigate('ManageExpense', { expenseId: id });
+  }
 
   return (
     <Pressable style={({ pressed }) => pressed && styles.pressed} onPress={expensePressHandler}>
