@@ -1,13 +1,19 @@
-import { useContext, useLayoutEffect } from 'react';
+import { useContext, useLayoutEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import ExpenseForm from '../components/ManageExpense/ExpenseForm';
 import IconButton from '../components/UI/IconButton';
+import LoadingOverlay from '../components/UI/LoadingOverlay';
+import ErrorOverlay from '../components/UI/ErrorOverlay';
 import { GlobalStyles } from '../constants/styles';
 import { ExpensesContext } from '../store/expenses-context';
+import { deleteExpense, storeExpense, updateExpense } from '../util/http';
 
 const { colors } = GlobalStyles;
 
 function ManageExpense({ route, navigation }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState();
+
   const expensesContext = useContext(ExpensesContext);
 
   const editedExpenseId = route.params?.expenseId;
@@ -18,23 +24,41 @@ function ManageExpense({ route, navigation }) {
 
   const isEditing = !!editedExpenseId;
 
-  function deleteExpenseHandler() {
-    expensesContext.deleteExpense(editedExpenseId);
-    navigation.goBack();
+  async function deleteExpenseHandler() {
+    setIsSubmitting(true);
+
+    try {
+      await deleteExpense(editedExpenseId);
+      expensesContext.deleteExpense(editedExpenseId);
+
+      navigation.goBack();
+    } catch (error) {
+      setError('삭제하지 못했습니다. 잠시 후 다시 시도하세요.');
+      setIsSubmitting(false);
+    }
   }
 
   function cancelHandler() {
     navigation.goBack();
   }
 
-  function confirmHandler(expenseData) {
-    if (isEditing) {
-      expensesContext.updateExpense(editedExpenseId, expenseData);
-    } else {
-      expensesContext.addExpense(expenseData);
-    }
+  async function confirmHandler(expenseData) {
+    setIsSubmitting(true);
 
-    navigation.goBack();
+    try {
+      if (isEditing) {
+        expensesContext.updateExpense(editedExpenseId, expenseData); //로컬 먼저 업뎃
+        updateExpense(editedExpenseId, expenseData);
+      } else {
+        const id = await storeExpense(expenseData);
+        expensesContext.addExpense({ ...expenseData, id: id });
+      }
+
+      navigation.goBack();
+    } catch (error) {
+      setError('데이터 요청에 실패했습니다.');
+      setIsSubmitting(false);
+    }
   }
 
   useLayoutEffect(() => {
@@ -43,6 +67,14 @@ function ManageExpense({ route, navigation }) {
       title: isEditing ? 'Edit Expense' : 'Add Expense',
     });
   }, [navigation, isEditing]);
+
+  if (error && !isSubmitting) {
+    return <ErrorOverlay message={error} />;
+  }
+
+  if (isSubmitting) {
+    return <LoadingOverlay />;
+  }
 
   return (
     <View style={styles.container}>
